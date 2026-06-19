@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campus al Dia</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg:        #0d0f14;
+    --surface:   #141720;
+    --surface2:  #1c2030;
+    --border:    #252a3a;
+    --text:      #e2e8f0;
+    --muted:     #6b7a99;
+    --accent:    #3b82f6;
+
+    /* Fases */
+    --prealerta-bg:    rgba(245,158,11,.08);
+    --prealerta-border:#f59e0b;
+    --prealerta-text:  #fbbf24;
+    --prealerta-badge: #f59e0b;
+
+    --alerta-bg:    rgba(249,115,22,.08);
+    --alerta-border:#f97316;
+    --alerta-text:  #fb923c;
+    --alerta-badge: #f97316;
+
+    --emergencia-bg:    rgba(239,68,68,.1);
+    --emergencia-border:#ef4444;
+    --emergencia-text:  #f87171;
+    --emergencia-badge: #ef4444;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── RAIL DECO ── */
+  .rail-deco {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--accent) 0px, var(--accent) 20px,
+      transparent 20px, transparent 30px
+    );
+    opacity: .25;
+    pointer-events: none;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    height: 64px;
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo-rail {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+  }
+
+  .logo-rail img {
+    height: 34px;
+    width: auto;
+    display: block;
+  }
+
+  header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    letter-spacing: .08em;
+    color: var(--text);
+  }
+  header h1 span { color: var(--muted); font-weight: 400; }
+
+  /* ── STATUS INDICATOR ── */
+  .status-indicator {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    font-size: .72rem;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background .4s;
+  }
+  .status-dot.ok   { background: #22c55e; }
+  .status-dot.err  { background: #ef4444; }
+  .status-dot.loading {
+    background: var(--accent);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .3; }
+  }
+
+  @media (max-width: 600px) {
+    .logo-rail img { display: none; }
+    header h1 span { display: none; }
+    .status-label { display: none; }
+  }
+
+  /* ── MAIN ── */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .hero-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: .72rem;
+    letter-spacing: .18em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .hero h2 {
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    font-weight: 700;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+    letter-spacing: -.01em;
+  }
+
+  .hero h2 span {
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .hero p {
+    color: var(--muted);
+    font-size: .95rem;
+    line-height: 1.7;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* ── ALERTS ZONE ── */
+  #alerts-zone {
+    width: 100%;
+    margin-bottom: 2.5rem;
+  }
+
+  /* Cap alerta — invisible */
+  #alerts-zone:empty { display: none; }
+
+  .alerts-title {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+  }
+  .alerts-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── ALERT CARD ── */
+  .alert-card {
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+    border: 1px solid;
+  }
+
+  .alert-card.prealerta {
+    background: var(--prealerta-bg);
+    border-color: var(--prealerta-border);
+  }
+  .alert-card.alerta {
+    background: var(--alerta-bg);
+    border-color: var(--alerta-border);
+  }
+  .alert-card.emergencia {
+    background: var(--emergencia-bg);
+    border-color: var(--emergencia-border);
+    animation: glow-red 2.5s ease-in-out infinite;
+  }
+
+  @keyframes glow-red {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    50%       { box-shadow: 0 0 18px 2px rgba(239,68,68,.18); }
+  }
+
+  .alert-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    line-height: 1;
+    margin-top: .1rem;
+  }
+
+  .alert-body { flex: 1; min-width: 0; }
+
+  .alert-header {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    margin-bottom: .5rem;
+    flex-wrap: wrap;
+  }
+
+  .alert-acronim {
+    font-family: 'Space Mono', monospace;
+    font-size: .95rem;
+    font-weight: 700;
+  }
+  .prealerta .alert-acronim { color: var(--prealerta-text); }
+  .alerta    .alert-acronim { color: var(--alerta-text); }
+  .emergencia .alert-acronim { color: var(--emergencia-text); }
+
+  .alert-badge {
+    font-size: .65rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: .2rem .55rem;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+  .prealerta  .alert-badge { background: var(--prealerta-badge); color: #0d0f14; }
+  .alerta     .alert-badge { background: var(--alerta-badge);    color: #0d0f14; }
+  .emergencia .alert-badge { background: var(--emergencia-badge); color: #fff; }
+
+  .alert-nom {
+    font-size: .88rem;
+    color: var(--text);
+    font-weight: 500;
+    margin-bottom: .4rem;
+    line-height: 1.4;
+  }
+
+  .alert-descripcio {
+    font-size: .8rem;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: .5rem;
+  }
+
+  .alert-meta {
+    display: flex;
+    gap: 1.25rem;
+    font-size: .72rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    flex-wrap: wrap;
+  }
+  .alert-meta span { display: flex; align-items: center; gap: .3rem; }
+
+  .alert-pdf {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    margin-top: .6rem;
+    font-size: .75rem;
+    color: var(--accent);
+    text-decoration: none;
+    font-family: 'Space Mono', monospace;
+    transition: opacity .15s;
+  }
+  .alert-pdf:hover { opacity: .75; }
+
+  /* ── CTA BUTTON ── */
+  .cta-wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .btn-ferrocat {
+    display: inline-flex;
+    align-items: center;
+    gap: .75rem;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    padding: 1rem 2.5rem;
+    border-radius: 10px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: opacity .2s, transform .15s;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-ferrocat:hover {
+    opacity: .88;
+    transform: translateY(-1px);
+  }
+  .btn-ferrocat svg {
+    width: 20px; height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .btn-sub {
+    font-size: .75rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1rem 2rem;
+    text-align: center;
+    font-size: .72rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="rail-deco"></div>
+
+<header>
+  <div class="logo-rail">
+    <img src="campusaldia.png" alt="Campus al Dia">
+    <h1>Campus al Dia <span>· Inici</span></h1>
+  </div>
+  <div class="status-indicator" id="status-indicator" title="Estat de la connexió amb Protecció Civil">
+    <div class="status-dot loading" id="status-dot"></div>
+    <span class="status-label" id="status-label">Verificant Protecció Civil…</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="hero">
+    <div class="hero-eyebrow">Campus al Dia</div>
+    <h2>Protecció civil<br>i <span>infraestructura ferroviària</span></h2>
+    <p>Seguiment en temps real dels plans de protecció civil actius i anàlisi de les activacions del pla FERROCAT a Catalunya.</p>
+  </div>
+
+  <!-- Les targetes d'alerta s'injecten aquí si n'hi ha -->
+  <div id="alerts-zone"></div>
+
+  <div class="cta-wrap">
+    <a href="ferrocat.html" class="btn-ferrocat">
+      <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      Accedir al visor FERROCAT
+    </a>
+    <span class="btn-sub">Activacions · Heatmap · Comarques · Municipis</span>
+  </div>
+
+</main>
+
+<footer>
+  Dades PROCICAT: <a href="https://analisi.transparenciacatalunya.cat" target="_blank" style="color:var(--accent);text-decoration:none;">Transparència Catalunya</a>
+  · Actualitzat en temps real
+</footer>
+
+<script>
+const PROCICAT_URL = 'https://analisi.transparenciacatalunya.cat/resource/wj9c-j6vf.json';
+
+const FASE_CONFIG = {
+  prealerta:  { cls: 'prealerta',  badge: 'Prealerta',  icon: '⚠️' },
+  alerta:     { cls: 'alerta',     badge: 'Alerta',     icon: '🔶' },
+  emergencia: { cls: 'emergencia', badge: 'Emergència', icon: '🚨' },
+  emergència: { cls: 'emergencia', badge: 'Emergència', icon: '🚨' },
+};
+
+function detectFase(pla) {
+  const fase = (pla.plafase || '').toLowerCase().trim();
+  // Cerca coincidència parcial
+  for (const [key, cfg] of Object.entries(FASE_CONFIG)) {
+    if (fase.includes(key)) return cfg;
+  }
+  // Fallback per activat sense fase reconeguda
+  return { cls: 'alerta', badge: pla.plafase || 'Actiu', icon: '🔶' };
+}
+
+function formatData(str) {
+  if (!str) return null;
+  // Format esperat: "2025-06-18T10:30:00.000"
+  const d = new Date(str);
+  if (isNaN(d)) return str;
+  return d.toLocaleDateString('ca-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function setStatus(state, text) {
+  const dot = document.getElementById('status-dot');
+  const label = document.getElementById('status-label');
+  dot.className = 'status-dot ' + state;
+  label.textContent = text;
+}
+
+function renderAlerts(plans) {
+  const zone = document.getElementById('alerts-zone');
+  zone.innerHTML = '';
+
+  if (!plans || plans.length === 0) return;
+
+  const title = document.createElement('div');
+  title.className = 'alerts-title';
+  title.textContent = `Plans de protecció civil actius · ${plans.length}`;
+  zone.appendChild(title);
+
+  plans.forEach(pla => {
+    const cfg = detectFase(pla);
+
+    const card = document.createElement('div');
+    card.className = `alert-card ${cfg.cls}`;
+
+    const dataStr = formatData(pla.fasedatahora);
+
+    card.innerHTML = `
+      <div class="alert-icon">${cfg.icon}</div>
+      <div class="alert-body">
+        <div class="alert-header">
+          <span class="alert-acronim">${pla.plaacronim || '—'}</span>
+          <span class="alert-badge">${cfg.badge}</span>
+        </div>
+        <div class="alert-nom">${pla.planom || ''}</div>
+        ${pla.descripcio ? `<div class="alert-descripcio">${pla.descripcio}</div>` : ''}
+        <div class="alert-meta">
+          ${dataStr ? `<span>📅 ${dataStr}</span>` : ''}
+          ${pla.plaactivat ? `<span>✅ Activat: ${pla.plaactivat}</span>` : ''}
+        </div>
+
+      </div>
+    `;
+
+    zone.appendChild(card);
+  });
+}
+
+async function checkProcicat() {
+  setStatus('loading', 'Verificant Protecció Civil…');
+  try {
+    const resp = await fetch(PROCICAT_URL, { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const plans = await resp.json();
+
+    if (!plans || plans.length === 0) {
+      setStatus('ok', 'Cap pla actiu · Protecció Civil');
+    } else {
+      setStatus('ok', `${plans.length} pla${plans.length > 1 ? 'ns' : ''} actiu${plans.length > 1 ? 's' : ''} · Protecció Civil`);
+    }
+    renderAlerts(plans);
+  } catch (err) {
+    console.warn('PROCICAT:', err);
+    setStatus('err', 'No s\'ha pogut connectar · Protecció Civil');
+  }
+}
+
+checkProcicat();
+</script>
+
+</body>
+</html>
