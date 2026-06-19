@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FERROCAT · Dashboard d'Incidències Ferroviàries</title>
+<title>Campus al Dia · Activacions FERROCAT</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -76,6 +76,14 @@
     font-family: 'Space Mono', monospace;
   }
   .data-banner strong { color: var(--accent); font-weight: 700; }
+  .data-banner .scope {
+    display: block;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: .72rem;
+    color: var(--muted);
+    margin-top: .2rem;
+    letter-spacing: 0;
+  }
 
   /* ── PARTIAL YEAR NOTICE ── */
   .partial-notice {
@@ -440,7 +448,7 @@
 <header>
   <div class="logo-rail">
     <img src="campusaldia.png" alt="Campus al Dia">
-    <h1>FERROCAT <span>· Campus al Dia</span></h1>
+    <h1>Campus al Dia <span>· Activacions FERROCAT</span></h1>
   </div>
   <div class="legend-pill">
     <div class="pill"><div class="dot dot-pre"></div> Prealerta</div>
@@ -448,14 +456,16 @@
   </div>
 </header>
 
-<div class="data-banner">Dades actualitzades fins al <strong>18/06/2026</strong></div>
+<div class="data-banner">
+  Dades de Protecció Civil sobre activacions del pla per talls de circulació ferroviària de tots els operadors. <strong>No inclouen tots els talls</strong> (per exemple, no recullen el metro ni alguns de Rodalies) · Les dades de 2026 cobreixen de <strong>gener a maig</strong>
+</div>
 
 <main>
 
   <!-- LOADING STATE -->
   <div id="upload-section">
     <div>
-      <h2 style="font-size:1.6rem;font-weight:700;margin-bottom:.5rem;">Dashboard d'Incidències FERROCAT</h2>
+      <h2 style="font-size:1.6rem;font-weight:700;margin-bottom:.5rem;">Campus al Dia · Activacions FERROCAT</h2>
       <p class="upload-hint" id="loading-text">Carregant les dades…</p>
     </div>
     <div id="error-box" style="display:none;">
@@ -471,7 +481,7 @@
 
     <div class="partial-notice" id="partial-notice">
       <span class="icon">⚠️</span>
-      <span>Les dades de 2026 només arriben fins al 18 de juny, per això les gràfiques d'aquest any es limiten als sis primers mesos.</span>
+      <span>Les dades de 2026 només arriben fins al 18 de maig, per això les gràfiques d'aquest any es limiten als cinc primers mesos.</span>
     </div>
 
     <div class="kpi-row">
@@ -559,7 +569,7 @@ let allData = {};   // { 2025: [...], 2026: [...] }
 let activeYear = null;
 let chartMes, chartTip, chartComp;
 const TOTAL_COMARQUES = 32;
-const DATA_LIMIT = new Date(2026, 5, 18); // 18/06/2026 - última dada disponible
+const DATA_LIMIT = new Date(2026, 4, 31); // les dades de 2026 cobreixen de gener a maig
 
 const MESOS_CA = ['gen.','feb.','mar.','abr.','mai.','jun.','jul.','ago.','set.','oct.','nov.','des.'];
 const MESOS_FULL = ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
@@ -700,8 +710,8 @@ function isPartialYear() {
 }
 
 function monthsToShow() {
-  // Quan és 2026, només mostrem gener-juny (índexs 0-5)
-  return activeYear === 2026 ? 6 : 12;
+  // Quan és 2026, només mostrem gener-maig (índexs 0-4)
+  return activeYear === 2026 ? 5 : 12;
 }
 
 function updateKPIs() {
@@ -756,7 +766,7 @@ function renderHeatmap() {
   const start = new Date(refYear, 0, 1);
   let end;
   if (targetYear === 2026) {
-    end = new Date(2026, 5, 30); // limitat a juny
+    end = new Date(2026, 4, 31); // limitat a maig
   } else if (targetYear) {
     end = new Date(refYear, 11, 31);
   } else {
