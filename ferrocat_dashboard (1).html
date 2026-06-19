@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FERROCAT · Dashboard d'Incidències Ferroviàries</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg:        #0d0f14;
+    --surface:   #141720;
+    --surface2:  #1c2030;
+    --border:    #252a3a;
+    --text:      #e2e8f0;
+    --muted:     #6b7a99;
+    --prealerta: #f59e0b;
+    --activat:   #ef4444;
+    --accent:    #3b82f6;
+    --rail:      #334155;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo-rail {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+  }
+
+  .logo-rail img {
+    height: 34px;
+    width: auto;
+    display: block;
+  }
+
+  header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    letter-spacing: .08em;
+    color: var(--text);
+  }
+  header h1 span { color: var(--muted); font-weight: 400; }
+
+  /* ── DATA FRESHNESS BANNER ── */
+  .data-banner {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: .5rem 2rem;
+    font-size: .78rem;
+    color: var(--muted);
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+  }
+  .data-banner strong { color: var(--accent); font-weight: 700; }
+
+  /* ── PARTIAL YEAR NOTICE ── */
+  .partial-notice {
+    display: none;
+    background: rgba(245,158,11,.1);
+    border: 1px solid var(--prealerta);
+    border-radius: 8px;
+    padding: .75rem 1.25rem;
+    font-size: .82rem;
+    color: var(--prealerta);
+    margin-bottom: 1.5rem;
+    align-items: center;
+    gap: .6rem;
+  }
+  .partial-notice.show { display: flex; }
+  .partial-notice .icon { font-size: 1rem; flex-shrink: 0; }
+
+  .legend-pill {
+    margin-left: auto;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    font-size: .78rem;
+    color: var(--muted);
+  }
+  .pill {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-pre  { background: var(--prealerta); }
+  .dot-act  { background: var(--activat); }
+
+  /* ── MAIN LAYOUT ── */
+  main { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+
+  /* ── UPLOAD STATE ── */
+  #upload-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 2rem;
+    text-align: center;
+  }
+
+  .upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 700px;
+  }
+
+  .upload-card {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 2rem 1.5rem;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative;
+  }
+  .upload-card:hover { border-color: var(--accent); background: rgba(59,130,246,.05); }
+  .upload-card.loaded { border-color: var(--activat); border-style: solid; }
+  .upload-card input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+  .upload-card .year {
+    font-family: 'Space Mono', monospace;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+  }
+  .upload-card .filename {
+    font-size: .8rem;
+    color: var(--muted);
+    margin-top: .5rem;
+    display: block;
+  }
+  .upload-card.loaded .filename { color: var(--activat); }
+
+  .btn-load {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: .75rem 2.5rem;
+    border-radius: 8px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s;
+  }
+  .btn-load:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-load:not(:disabled):hover { opacity: .85; }
+
+  .upload-hint {
+    color: var(--muted);
+    font-size: .85rem;
+    line-height: 1.6;
+  }
+
+  /* ── DASHBOARD ── */
+  #dashboard { display: none; }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+  }
+  .kpi .kpi-label {
+    font-size: .75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: .4rem;
+  }
+  .kpi .kpi-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .kpi .kpi-sub {
+    font-size: .75rem;
+    color: var(--muted);
+    margin-top: .3rem;
+  }
+  .kpi-value.c-pre  { color: var(--prealerta); }
+  .kpi-value.c-act  { color: var(--activat); }
+  .kpi-value.c-acc  { color: var(--accent); }
+
+  /* ── YEAR TABS ── */
+  .year-tabs {
+    display: flex;
+    gap: .5rem;
+    margin-bottom: 1.5rem;
+  }
+  .tab-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: .5rem 1.25rem;
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: .9rem;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* ── SECTION TITLES ── */
+  .section-title {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .card-title {
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    margin-bottom: 1.25rem;
+  }
+
+  /* ── HEATMAP CALENDAR ── */
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(53, 1fr);
+    gap: 3px;
+  }
+  .cal-day {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 2px;
+    cursor: default;
+    position: relative;
+  }
+  .cal-day:hover .tooltip { display: block; }
+
+  .cal-month-labels {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 4px;
+    font-size: .65rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .4rem .7rem;
+    font-size: .72rem;
+    white-space: nowrap;
+    z-index: 200;
+    pointer-events: none;
+    color: var(--text);
+  }
+
+  /* ── TWO-COL LAYOUT ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* ── BAR CHART ── */
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* ── COMARCA MAP SVG ── */
+  #comarca-map {
+    width: 100%;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .comarca-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .82rem;
+  }
+  .comarca-table th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 500;
+    padding: .4rem .5rem;
+    border-bottom: 1px solid var(--border);
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+  }
+  .comarca-table td {
+    padding: .45rem .5rem;
+    border-bottom: 1px solid rgba(37,42,58,.6);
+  }
+  .comarca-table tr:last-child td { border-bottom: none; }
+  .bar-inline {
+    height: 6px;
+    border-radius: 3px;
+    margin-top: 3px;
+  }
+
+  /* ── MUNICIPIS RÀNQUING ── */
+  .rank-list { display: flex; flex-direction: column; gap: .5rem; }
+  .rank-item {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    font-size: .84rem;
+  }
+  .rank-num {
+    font-family: 'Space Mono', monospace;
+    font-size: .7rem;
+    color: var(--muted);
+    width: 18px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .rank-name { flex: 1; }
+  .rank-bar-wrap {
+    flex: 2;
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .rank-bar { height: 100%; border-radius: 4px; }
+  .rank-count {
+    font-family: 'Space Mono', monospace;
+    font-size: .75rem;
+    color: var(--muted);
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* ── COMPARATIVA ── */
+  .comp-chart-wrap { position: relative; height: 260px; }
+
+  /* ── TIPOLOGIES ── */
+  .tip-chart-wrap { position: relative; height: 260px; }
+
+  /* ── RAIL DECORATION ── */
+  .rail-deco {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--accent) 0px, var(--accent) 20px,
+      transparent 20px, transparent 30px
+    );
+    opacity: .25;
+    pointer-events: none;
+  }
+
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .two-col, .three-col { grid-template-columns: 1fr; }
+    .cal-grid { grid-template-columns: repeat(26, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="rail-deco"></div>
+
+<header>
+  <div class="logo-rail">
+    <img src="campusaldia.png" alt="Campus al Dia">
+    <h1>FERROCAT <span>· Campus al Dia</span></h1>
+  </div>
+  <div class="legend-pill">
+    <div class="pill"><div class="dot dot-pre"></div> Prealerta</div>
+    <div class="pill"><div class="dot dot-act"></div> Activat</div>
+  </div>
+</header>
+
+<div class="data-banner">Dades actualitzades fins al <strong>18/06/2026</strong></div>
+
+<main>
+
+  <!-- LOADING STATE -->
+  <div id="upload-section">
+    <div>
+      <h2 style="font-size:1.6rem;font-weight:700;margin-bottom:.5rem;">Dashboard d'Incidències FERROCAT</h2>
+      <p class="upload-hint" id="loading-text">Carregant les dades…</p>
+    </div>
+    <div id="error-box" style="display:none;">
+      <p class="upload-hint" style="color:var(--activat);max-width:500px;">
+        No s'han pogut carregar els fitxers <strong>Ferrocat2025.xlsx</strong> i/o <strong>Ferrocat2026.xlsx</strong>.
+        Comprova que estiguin a la mateixa carpeta que aquesta pàgina.
+      </p>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+
+    <div class="partial-notice" id="partial-notice">
+      <span class="icon">⚠️</span>
+      <span>Les dades de 2026 només arriben fins al 18 de juny, per això les gràfiques d'aquest any es limiten als sis primers mesos.</span>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Total incidències</div>
+        <div class="kpi-value c-acc" id="k-total">—</div>
+        <div class="kpi-sub" id="k-total-sub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Activacions del pla</div>
+        <div class="kpi-value c-act" id="k-act">—</div>
+        <div class="kpi-sub" id="k-act-sub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">En prealerta</div>
+        <div class="kpi-value c-pre" id="k-pre">—</div>
+        <div class="kpi-sub" id="k-pre-sub"></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Comarques afectades</div>
+        <div class="kpi-value" id="k-com">—</div>
+        <div class="kpi-sub" id="k-com-sub">de 32 amb servei ferroviari</div>
+      </div>
+    </div>
+
+    <div class="year-tabs" id="year-tabs"></div>
+
+    <!-- HEATMAP -->
+    <div class="section-title">Calendari d'incidències</div>
+    <div class="card">
+      <div class="card-title" id="cal-title">Densitat d'incidències per dia</div>
+      <div id="cal-month-labels" class="cal-month-labels"></div>
+      <div id="cal-grid" class="cal-grid"></div>
+      <div style="display:flex;gap:1rem;margin-top:1rem;align-items:center;font-size:.72rem;color:var(--muted);">
+        <span>Cap incidència</span>
+        <div style="display:flex;gap:3px;">
+          <div style="width:12px;height:12px;border-radius:2px;background:var(--surface2);"></div>
+          <div style="width:12px;height:12px;border-radius:2px;background:#1e3a5f;"></div>
+          <div style="width:12px;height:12px;border-radius:2px;background:#1d4ed8;"></div>
+          <div style="width:12px;height:12px;border-radius:2px;background:#ef4444;"></div>
+          <div style="width:12px;height:12px;border-radius:2px;background:#fef08a;"></div>
+        </div>
+        <span>Alta activitat</span>
+        <span style="margin-left:1rem">🟡 = Activat · 🔵 = Prealerta</span>
+      </div>
+    </div>
+
+    <!-- BARRES MES + TIPOLOGIA -->
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Incidències per mes</div>
+        <div class="chart-wrap"><canvas id="chart-mes"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Distribució per tipologia</div>
+        <div class="tip-chart-wrap"><canvas id="chart-tip"></canvas></div>
+      </div>
+    </div>
+
+    <!-- COMARQUES + MUNICIPIS -->
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Comarques amb més incidències</div>
+        <div id="comarca-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Rànquing de municipis</div>
+        <div class="rank-list" id="rank-municipis"></div>
+      </div>
+    </div>
+
+    <!-- COMPARATIVA -->
+    <div class="section-title">Comparativa anual</div>
+    <div class="card">
+      <div class="card-title">Incidències per mes · 2025 vs 2026</div>
+      <div class="comp-chart-wrap"><canvas id="chart-comp"></canvas></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+let allData = {};   // { 2025: [...], 2026: [...] }
+let activeYear = null;
+let chartMes, chartTip, chartComp;
+const TOTAL_COMARQUES = 32;
+const DATA_LIMIT = new Date(2026, 5, 18); // 18/06/2026 - última dada disponible
+
+const MESOS_CA = ['gen.','feb.','mar.','abr.','mai.','jun.','jul.','ago.','set.','oct.','nov.','des.'];
+const MESOS_FULL = ['Gener','Febrer','Març','Abril','Maig','Juny','Juliol','Agost','Setembre','Octubre','Novembre','Desembre'];
+const FITXERS = { 2025: 'Ferrocat2025.xlsx', 2026: 'Ferrocat2026.xlsx' };
+
+// ── AUTO LOAD ON PAGE START ─────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', autoLoadData);
+
+async function autoLoadData() {
+  let loadedAny = false;
+  for (const [year, filename] of Object.entries(FITXERS)) {
+    try {
+      const resp = await fetch(filename);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const buf = await resp.arrayBuffer();
+      parseWorkbook(buf, +year);
+      loadedAny = true;
+    } catch (err) {
+      console.warn(`No s'ha pogut carregar ${filename}:`, err);
+    }
+  }
+
+  if (!loadedAny) {
+    document.getElementById('loading-text').style.display = 'none';
+    document.getElementById('error-box').style.display = 'block';
+    return;
+  }
+
+  renderDashboard();
+}
+
+// ── PARSE DATE ─────────────────────────────────────────────────────────────
+// Expected formats: "03/gen./2025 13:33" or "03/01/2025 13:33"
+const MONTH_MAP = {
+  'gen':1,'feb':2,'mar':3,'abr':4,'mai':5,'jun':6,
+  'jul':7,'ago':8,'set':9,'oct':10,'nov':11,'des':12,
+  'jan':1,'apr':4,'may':5,'sep':9,'aug':8,'oct':10,'nov':11,'dec':12
+};
+
+function parseDate(str) {
+  if (!str) return null;
+  str = String(str).trim();
+  // try numeric dd/mm/yyyy
+  let m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+  // try dd/mon./yyyy
+  m = str.match(/^(\d{1,2})\/([a-zà-ú\.]+)\/(\d{4})/i);
+  if (m) {
+    const monKey = m[2].replace('.','').toLowerCase().slice(0,3);
+    const mon = MONTH_MAP[monKey];
+    if (mon) return new Date(+m[3], mon-1, +m[1]);
+  }
+  // Excel serial
+  const n = parseFloat(str);
+  if (!isNaN(n) && n > 1000) {
+    const d = new Date((n - 25569) * 86400 * 1000);
+    return d;
+  }
+  return null;
+}
+
+// ── PARSE WORKBOOK ─────────────────────────────────────────────────────────
+function parseWorkbook(buf, year) {
+  const wb = XLSX.read(buf, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+  allData[year] = rows.map(r => {
+    // normalise column names
+    const keys = Object.keys(r);
+    const get = (candidates) => {
+      for (const c of candidates) {
+        const k = keys.find(k => k.toLowerCase().includes(c.toLowerCase()));
+        if (k !== undefined) return r[k];
+      }
+      return '';
+    };
+    const dateRaw = get(['Data incid','Data']);
+    const activacio = String(get(['Activació','Activacio','Activat'])).trim();
+    const estat = activacio.toLowerCase() === 'activat' ? 'Activat' : 'Prealerta';
+    return {
+      id: get(['Id','ID']),
+      data: parseDate(dateRaw),
+      estat,
+      tipificacio: get(['Tipificació','Tipificacio']),
+      descripcio: get(['Descripció','Descripcio']),
+      municipi: get(['Municipi']),
+      comarca: get(['Comarca']),
+    };
+  }).filter(r => r.data);
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function renderDashboard() {
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  const years = Object.keys(allData).map(Number).sort();
+  activeYear = years[0];
+
+  // Year tabs
+  const tabs = document.getElementById('year-tabs');
+  tabs.innerHTML = '';
+  years.forEach(y => {
+    const b = document.createElement('button');
+    b.className = 'tab-btn' + (y === activeYear ? ' active' : '');
+    b.textContent = y;
+    b.onclick = () => { activeYear = y; setActiveTab(b); renderYear(); };
+    tabs.appendChild(b);
+  });
+  if (years.length > 1) {
+    const b = document.createElement('button');
+    b.className = 'tab-btn';
+    b.textContent = 'Tots els anys';
+    b.onclick = () => { activeYear = 'all'; setActiveTab(b); renderYear(); };
+    tabs.appendChild(b);
+  }
+
+  updateKPIs();
+  renderYear();
+  renderComparativa();
+}
+
+function setActiveTab(el) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function getRows() {
+  let rows;
+  if (activeYear === 'all') rows = Object.values(allData).flat();
+  else rows = allData[activeYear] || [];
+  return rows;
+}
+
+function isPartialYear() {
+  // Mostra l'avís quan es selecciona només el 2026 (dades limitades als 6 primers mesos)
+  return activeYear === 2026;
+}
+
+function monthsToShow() {
+  // Quan és 2026, només mostrem gener-juny (índexs 0-5)
+  return activeYear === 2026 ? 6 : 12;
+}
+
+function updateKPIs() {
+  const all = Object.values(allData).flat();
+  const act = all.filter(r => r.estat === 'Activat');
+  const pre = all.filter(r => r.estat === 'Prealerta');
+  const coms = new Set(all.map(r => r.comarca).filter(Boolean));
+  document.getElementById('k-total').textContent = all.length;
+  document.getElementById('k-act').textContent = act.length;
+  document.getElementById('k-pre').textContent = pre.length;
+  document.getElementById('k-com').textContent = `${coms.size}/${TOTAL_COMARQUES}`;
+  const yrs = Object.keys(allData).sort().join(' · ');
+  document.getElementById('k-total-sub').textContent = yrs;
+  document.getElementById('k-act-sub').textContent =
+    ((act.length/all.length)*100).toFixed(1)+'% del total';
+  document.getElementById('k-pre-sub').textContent =
+    ((pre.length/all.length)*100).toFixed(1)+'% del total';
+  document.getElementById('k-com-sub').textContent = 'amb servei ferroviari';
+}
+
+function renderYear() {
+  const notice = document.getElementById('partial-notice');
+  notice.classList.toggle('show', isPartialYear());
+  renderHeatmap();
+  renderBarresMes();
+  renderTipologia();
+  renderComarques();
+  renderMunicipis();
+}
+
+// ── HEATMAP ────────────────────────────────────────────────────────────────
+function renderHeatmap() {
+  const rows = getRows();
+  const year = activeYear === 'all' ? Math.min(...Object.keys(allData).map(Number)) : activeYear;
+  const targetYear = activeYear === 'all' ? null : activeYear;
+
+  // count per day per estat
+  const dayMap = {};
+  rows.forEach(r => {
+    if (!r.data) return;
+    const key = r.data.toISOString().slice(0,10);
+    if (!dayMap[key]) dayMap[key] = { tot: 0, act: 0, pre: 0 };
+    dayMap[key].tot++;
+    if (r.estat === 'Activat') dayMap[key].act++;
+    else dayMap[key].pre++;
+  });
+
+  const maxVal = Math.max(...Object.values(dayMap).map(v => v.tot), 1);
+
+  // Build a year starting from Jan 1
+  const refYear = targetYear || Math.min(...Object.keys(allData).map(Number));
+  const start = new Date(refYear, 0, 1);
+  let end;
+  if (targetYear === 2026) {
+    end = new Date(2026, 5, 30); // limitat a juny
+  } else if (targetYear) {
+    end = new Date(refYear, 11, 31);
+  } else {
+    end = new Date(Math.max(...Object.keys(allData).map(Number)), 11, 31);
+  }
+
+  const grid = document.getElementById('cal-grid');
+  const labelsEl = document.getElementById('cal-month-labels');
+  grid.innerHTML = '';
+  labelsEl.innerHTML = '';
+
+  // offset: Monday=0
+  const startDow = (start.getDay() + 6) % 7; // 0=Mon
+
+  // Weeks
+  const totalDays = Math.round((end - start) / 86400000) + 1;
+  const totalWeeks = Math.ceil((startDow + totalDays) / 7);
+  grid.style.gridTemplateColumns = `repeat(${totalWeeks}, 1fr)`;
+
+  // Month labels
+  const monthColStart = {};
+  let col = 0, dayOffset = startDow;
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+    const weekCol = Math.floor(dayOffset / 7);
+    const mon = d.getMonth();
+    if (!monthColStart[mon]) monthColStart[mon] = weekCol;
+    dayOffset++;
+  }
+  // build label row
+  let prev = -1;
+  for (let w = 0; w < totalWeeks; w++) {
+    const span = document.createElement('span');
+    const mon = Object.entries(monthColStart).find(([,c]) => c === w);
+    span.textContent = mon ? MESOS_CA[+mon[0]] : '';
+    span.style.gridColumn = w+1;
+    labelsEl.appendChild(span);
+  }
+
+  // Empty cells before start
+  for (let i = 0; i < startDow; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'cal-day';
+    empty.style.background = 'transparent';
+    grid.appendChild(empty);
+  }
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+    const key = d.toISOString().slice(0,10);
+    const info = dayMap[key] || { tot: 0, act: 0, pre: 0 };
+    const cell = document.createElement('div');
+    cell.className = 'cal-day';
+    cell.style.background = dayColor(info.tot, info.act, maxVal);
+
+    const tip = document.createElement('div');
+    tip.className = 'tooltip';
+    const dateStr = d.toLocaleDateString('ca-ES',{day:'numeric',month:'long',year:'numeric'});
+    tip.innerHTML = `<strong>${dateStr}</strong><br>${info.tot} incidències<br>${info.act} activades · ${info.pre} prealerta`;
+    cell.appendChild(tip);
+    grid.appendChild(cell);
+  }
+
+  const label = targetYear ? targetYear : Object.keys(allData).sort().join(' – ');
+  document.getElementById('cal-title').textContent = `Densitat d'incidències per dia · ${label}`;
+}
+
+function dayColor(tot, act, max) {
+  if (tot === 0) return 'var(--surface2)';
+  const intensity = tot / max;
+  if (act > 0) {
+    // Activated: amber/red scale
+    if (intensity < .25) return '#7c2d12';
+    if (intensity < .5)  return '#c2410c';
+    if (intensity < .75) return '#ef4444';
+    return '#fef08a';
+  } else {
+    // Prealerta only: blue scale
+    if (intensity < .25) return '#1e3a5f';
+    if (intensity < .5)  return '#1d4ed8';
+    if (intensity < .75) return '#3b82f6';
+    return '#93c5fd';
+  }
+}
+
+// ── BARRES MES ─────────────────────────────────────────────────────────────
+function renderBarresMes() {
+  const rows = getRows();
+  const nMesos = monthsToShow();
+  const pre = new Array(nMesos).fill(0);
+  const act = new Array(nMesos).fill(0);
+  rows.forEach(r => {
+    if (!r.data) return;
+    const m = r.data.getMonth();
+    if (m >= nMesos) return;
+    if (r.estat === 'Activat') act[m]++; else pre[m]++;
+  });
+
+  const ctx = document.getElementById('chart-mes').getContext('2d');
+  if (chartMes) chartMes.destroy();
+  chartMes = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: MESOS_CA.slice(0, nMesos),
+      datasets: [
+        { label: 'Prealerta', data: pre, backgroundColor: '#f59e0b', borderRadius: 3, stack: 's' },
+        { label: 'Activat',   data: act, backgroundColor: '#ef4444', borderRadius: 3, stack: 's' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#6b7a99', font: { family: 'Space Grotesk', size: 11 } } } },
+      scales: {
+        x: { stacked: true, ticks: { color: '#6b7a99', font: { size: 10 } }, grid: { color: '#252a3a' } },
+        y: { stacked: true, ticks: { color: '#6b7a99', font: { size: 10 } }, grid: { color: '#252a3a' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+// ── TIPOLOGIA ──────────────────────────────────────────────────────────────
+function renderTipologia() {
+  const rows = getRows();
+  const count = {};
+  rows.forEach(r => {
+    const t = r.tipificacio || 'Sense tipificació';
+    const short = t.length > 40 ? t.slice(0,37)+'…' : t;
+    count[short] = (count[short]||0)+1;
+  });
+  const sorted = Object.entries(count).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  const ctx = document.getElementById('chart-tip').getContext('2d');
+  if (chartTip) chartTip.destroy();
+  chartTip = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(e=>e[0]),
+      datasets: [{
+        data: sorted.map(e=>e[1]),
+        backgroundColor: [
+          '#3b82f6','#ef4444','#f59e0b','#10b981',
+          '#8b5cf6','#ec4899','#06b6d4','#84cc16'
+        ],
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#6b7a99', font: { family: 'Space Grotesk', size: 10 }, boxWidth: 10, padding: 8 }
+        }
+      }
+    }
+  });
+}
+
+// ── COMARQUES ──────────────────────────────────────────────────────────────
+function renderComarques() {
+  const rows = getRows();
+  const count = {};
+  rows.forEach(r => {
+    if (!r.comarca) return;
+    if (!count[r.comarca]) count[r.comarca] = { tot: 0, act: 0 };
+    count[r.comarca].tot++;
+    if (r.estat === 'Activat') count[r.comarca].act++;
+  });
+  const sorted = Object.entries(count).sort((a,b)=>b[1].tot-a[1].tot).slice(0,12);
+  const max = sorted[0]?.[1].tot || 1;
+  const nComarques = Object.keys(count).length;
+
+  const card = document.getElementById('comarca-list').closest('.card');
+  card.querySelector('.card-title').textContent =
+    `Comarques amb més incidències · ${nComarques}/${TOTAL_COMARQUES} afectades`;
+
+  const el = document.getElementById('comarca-list');
+  el.innerHTML = `<table class="comarca-table">
+    <thead><tr><th>Comarca</th><th style="text-align:right">Total</th><th style="text-align:right">Activats</th></tr></thead>
+    <tbody>
+    ${sorted.map(([com, v]) => `
+      <tr>
+        <td>
+          ${com}
+          <div class="bar-inline" style="width:${(v.tot/max*100).toFixed(0)}%;background:linear-gradient(90deg,var(--accent),var(--activat));"></div>
+        </td>
+        <td style="text-align:right;font-family:'Space Mono',monospace;font-size:.8rem;">${v.tot}</td>
+        <td style="text-align:right;font-family:'Space Mono',monospace;font-size:.8rem;color:var(--activat);">${v.act}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+// ── MUNICIPIS ──────────────────────────────────────────────────────────────
+function renderMunicipis() {
+  const rows = getRows();
+  const count = {};
+  rows.forEach(r => {
+    if (!r.municipi) return;
+    if (!count[r.municipi]) count[r.municipi] = { tot:0, act:0 };
+    count[r.municipi].tot++;
+    if (r.estat === 'Activat') count[r.municipi].act++;
+  });
+  const sorted = Object.entries(count).sort((a,b)=>b[1].tot-a[1].tot).slice(0,15);
+  const max = sorted[0]?.[1].tot || 1;
+
+  const el = document.getElementById('rank-municipis');
+  el.innerHTML = sorted.map(([mun, v], i) => `
+    <div class="rank-item">
+      <span class="rank-num">${i+1}</span>
+      <span class="rank-name">${mun}</span>
+      <div class="rank-bar-wrap">
+        <div class="rank-bar" style="width:${(v.tot/max*100).toFixed(0)}%;background:linear-gradient(90deg,var(--accent),var(--activat));"></div>
+      </div>
+      <span class="rank-count">${v.tot}</span>
+    </div>
+  `).join('');
+}
+
+// ── COMPARATIVA ────────────────────────────────────────────────────────────
+function renderComparativa() {
+  const years = Object.keys(allData).map(Number).sort();
+  if (years.length < 2) {
+    document.querySelector('.section-title').style.display = 'none';
+    document.getElementById('chart-comp').closest('.card').style.display = 'none';
+    return;
+  }
+
+  const datasets = [];
+  const colors = { Prealerta: '#f59e0b', Activat: '#ef4444' };
+  const dashes  = { 2025: [], 2026: [6,3] };
+
+  years.forEach(y => {
+    const limit = y === 2026 ? 6 : 12;
+    ['Prealerta','Activat'].forEach(estat => {
+      const vals = new Array(limit).fill(0);
+      (allData[y]||[]).forEach(r => {
+        if (!r.data) return;
+        const m = r.data.getMonth();
+        if (m >= limit) return;
+        if (r.estat === estat) vals[m]++;
+      });
+      // omplim amb null la resta de mesos perquè la línia no baixi a zero falsament
+      const fullVals = vals.concat(new Array(12 - limit).fill(null));
+      datasets.push({
+        label: `${y} · ${estat}`,
+        data: fullVals,
+        borderColor: colors[estat],
+        backgroundColor: colors[estat]+'33',
+        borderDash: dashes[y] || [],
+        borderWidth: 2,
+        pointRadius: 4,
+        tension: .3,
+        fill: false,
+        spanGaps: false
+      });
+    });
+  });
+
+  const ctx = document.getElementById('chart-comp').getContext('2d');
+  if (chartComp) chartComp.destroy();
+  chartComp = new Chart(ctx, {
+    type: 'line',
+    data: { labels: MESOS_FULL, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#6b7a99', font: { family: 'Space Grotesk', size: 11 }, boxWidth: 24 } }
+      },
+      scales: {
+        x: { ticks: { color: '#6b7a99', font: { size: 10 } }, grid: { color: '#252a3a' } },
+        y: { ticks: { color: '#6b7a99', font: { size: 10 } }, grid: { color: '#252a3a' }, beginAtZero: true }
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
