@@ -65,6 +65,11 @@
   }
   header h1 span { color: var(--muted); font-weight: 400; }
 
+  @media (max-width: 600px) {
+    .logo-rail img { display: none; }
+    header h1 span { display: none; }
+  }
+
   /* ── DATA FRESHNESS BANNER ── */
   .data-banner {
     background: var(--surface);
@@ -304,13 +309,14 @@
   .cal-day:hover .tooltip { display: block; }
 
   .cal-month-labels {
-    display: flex;
+    display: grid;
     gap: 3px;
     margin-bottom: 4px;
     font-size: .65rem;
     color: var(--muted);
     font-family: 'Space Mono', monospace;
   }
+  .cal-month-labels span { overflow: hidden; white-space: nowrap; }
 
   .tooltip {
     display: none;
@@ -437,7 +443,16 @@
   @media (max-width: 900px) {
     .kpi-row { grid-template-columns: repeat(2, 1fr); }
     .two-col, .three-col { grid-template-columns: 1fr; }
-    .cal-grid { grid-template-columns: repeat(26, 1fr); }
+    .cal-month-labels { font-size: .5rem; }
+    .cal-month-labels span { font-size: .5rem; }
+    .cal-scroll {
+      overflow-x: auto;
+      padding-bottom: .4rem;
+    }
+    .cal-scroll .cal-grid,
+    .cal-scroll .cal-month-labels {
+      min-width: 760px;
+    }
   }
 </style>
 </head>
@@ -457,7 +472,7 @@
 </header>
 
 <div class="data-banner">
-  Dades de Protecció Civil sobre activacions del pla per talls de circulació ferroviària de tots els operadors. <strong>No inclouen tots els talls</strong> (per exemple, no recullen el metro ni alguns de Rodalies) · Les dades de 2026 cobreixen de <strong>gener a maig</strong>
+  Dades de Protecció Civil sobre activacions del pla per talls de circulació ferroviària de tots els operadors. <strong>No inclouen tots els talls</strong> (per exemple, no recullen el metro ni alguns de Rodalies)
 </div>
 
 <main>
@@ -513,8 +528,10 @@
     <div class="section-title">Calendari d'incidències</div>
     <div class="card">
       <div class="card-title" id="cal-title">Densitat d'incidències per dia</div>
-      <div id="cal-month-labels" class="cal-month-labels"></div>
-      <div id="cal-grid" class="cal-grid"></div>
+      <div class="cal-scroll">
+        <div id="cal-month-labels" class="cal-month-labels"></div>
+        <div id="cal-grid" class="cal-grid"></div>
+      </div>
       <div style="display:flex;gap:1rem;margin-top:1rem;align-items:center;font-size:.72rem;color:var(--muted);">
         <span>Cap incidència</span>
         <div style="display:flex;gap:3px;">
@@ -785,6 +802,7 @@ function renderHeatmap() {
   const totalDays = Math.round((end - start) / 86400000) + 1;
   const totalWeeks = Math.ceil((startDow + totalDays) / 7);
   grid.style.gridTemplateColumns = `repeat(${totalWeeks}, 1fr)`;
+  labelsEl.style.gridTemplateColumns = `repeat(${totalWeeks}, 1fr)`;
 
   // Month labels
   const monthColStart = {};
